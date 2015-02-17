@@ -26,7 +26,8 @@ int main(int argc, char *argv[]) {
 	int opt;
 	uint8_t h_flag = 0, d_flag = 0, f_flag = 0; // Option flags
 
-	rom_buf.buffer = NULL;
+	// Cleanup the ROM structure
+	memset(&rom_buf, 0, sizeof(rom_buffer_structure));
 
 	// Allocate a buffer for serial structure
 	serial_device = malloc(sizeof(serport_ds));
@@ -36,7 +37,7 @@ int main(int argc, char *argv[]) {
 	}
 	
 	// Parse the command line
-	while ((opt = getopt(argc, argv, "d:f:h")) != -1) {
+	while ((opt = getopt(argc, argv, "d:f:n:h")) != -1) {
 		switch(opt) {
 			case 'd': // Parallel port to use
 				d_flag = 1;
@@ -49,8 +50,11 @@ int main(int argc, char *argv[]) {
 				f_flag = 1;
 				strncpy(filename, optarg, FNAME_BUF_SIZE - 1);
 				break;
+			case 'n': // ROM Name
+				strncpy(rom_buf.rom_name, optarg, ROM_NAME_SIZE - 1);
+				break;
 			case '?':
-				if (optopt == 'd' || optopt == 'D' || optopt == 'f') {
+				if (optopt == 'd' || optopt == 'D' || optopt == 'f' || optopt == 'n') {
 					fprintf(stderr, "Option -%c requires an argument.\n", optopt);
 				} else if (isprint(optopt)) {
 					fprintf(stderr, "Unknown option '-%c'.\n", optopt);
@@ -83,6 +87,11 @@ int main(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 
+	if (parseROMBuffer(&rom_buf) < 0) { // Parse ROM data
+		fprintf(stderr, "ROM Parsing failed .\n");
+		return EXIT_FAILURE;
+	}
+
 	serial_device->brate = 38400; // Set baudrate
 	if (serport_open(serial_device) < 0) { // Initialize the serial port module
 		fprintf(stderr, "Failure to initialize the serial port device %s .\n", serial_device->dev);
@@ -97,10 +106,11 @@ int main(int argc, char *argv[]) {
 		fprintf(stdout, "Super Everdrive found!!!\n");
 	}
 
-	int ret_val = -1;
-
-	if (ret_val < 0) {
+	if (everdriveUploadROM(&rom_buf, serial_device) < 0) {
+		fprintf(stderr, "Unable to upload ROM...\n");
 		return EXIT_FAILURE;
+	} else {
+		fprintf(stdout, "ROM Uploaded...\n");
 	}
 
 	return EXIT_SUCCESS;
@@ -112,7 +122,10 @@ static int readROMIntoBuffer(char *romname, rom_buffer_structure *rom_buf) {
 	int retval = 1;
 	FILE *rom_f = fopen(romname, "rb");
 	
-	if (!rom_f) return -1; // Unable to open file
+	if (!rom_f) {
+		perror(romname);
+		return -1; // Unable to open file
+	}
 
 	fseek(rom_f, 0, SEEK_END);
 	rom_buf->buffer_size = ftell(rom_f);
@@ -143,6 +156,7 @@ static void print_usage(char *progname) {
 	fprintf(stdout, "Usage: %s -d SERIAL_DEVICE -f rom_filename [-h]\n"
 			"\t-d SERIAL_DEVICE\tDefine the serial port to use.\n"
 			"\t-f rom_filename\t\tROM filename.\n"
+			"\t-n rom_name\t\tName to send the flashcart.\n"
 			"\t-h\t\t\tPrint this help\n", progname);
 }
 

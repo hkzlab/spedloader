@@ -40,7 +40,7 @@ int serport_open(serport_ds *ds) {
 	ds->attr.c_oflag &= ~OPOST; // Enables "raw" output
 	ds->attr.c_lflag &= ~(ICANON | ECHO | ISIG); // Enables "raw" mode for input 
 	ds->attr.c_cc[VMIN] = 4;
-	ds->attr.c_cc[VTIME] = 2;
+	ds->attr.c_cc[VTIME] = 0xFF;
 
 	ds->attr.c_cflag = CS8|CREAD|CLOCAL; // 8n1
 
