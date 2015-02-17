@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
 
 	// Cleanup the ROM structure
 	memset(&rom_buf, 0, sizeof(rom_buffer_structure));
+	strncpy(rom_buf.rom_name, "NOGAME", ROM_NAME_SIZE - 1);
 
 	// Allocate a buffer for serial structure
 	serial_device = malloc(sizeof(serport_ds));
@@ -92,7 +93,7 @@ int main(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	serial_device->brate = 38400; // Set baudrate
+	serial_device->brate = 230400; // Set baudrate
 	if (serport_open(serial_device) < 0) { // Initialize the serial port module
 		fprintf(stderr, "Failure to initialize the serial port device %s .\n", serial_device->dev);
 		serial_device = NULL;

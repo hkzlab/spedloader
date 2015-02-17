@@ -112,6 +112,7 @@ static speed_t brateConverter(int br) {
 		case 115200:
 			return B115200;
 		case 230400:
+			return B230400;
 		case 0:
 		default:
 			return B0; 

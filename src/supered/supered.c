@@ -7,9 +7,9 @@ int internal_sendROMData(rom_buffer_structure *rom, serport_ds *serport);
 int internal_sendROMInfo(rom_buffer_structure *rom, serport_ds *serport);
 
 int checkEverdrive_present(serport_ds *serport) {
-	char buf = 0, retval;
+	char buf = 0;
 
-	retval = write(serport->fd, "*t", 2);
+	if (write(serport->fd, "*t", 2) != 2) return -1;
 	if(read(serport->fd, &buf, 1) != 1) {
 		fprintf(stderr, "checkEverdrive -> Unable to read!\n");
 		return -1;
@@ -22,7 +22,7 @@ int checkEverdrive_present(serport_ds *serport) {
 int everdriveUploadROM(rom_buffer_structure *rom, serport_ds *serport) {
 	if (internal_sendROMData(rom, serport) < 0) return -1;
 	if (internal_sendROMInfo(rom, serport) < 0) return -1;
-	write(serport->fd, "*s", 2);
+	if (write(serport->fd, "*s", 2) != 2) return -1; // Start!
 
 	return 1;
 }
@@ -43,11 +43,12 @@ int internal_sendROMData(rom_buffer_structure *rom, serport_ds *serport) {
 	}
 
 	array[0] = array[1] = array[2] = 0;
-	array[3] = (uint8_t)(rom->buffer_size / 65536 & 0xFF);
+	array[3] = (uint8_t)(rom->buffer_size / 0x10000 & 0xFF);
 
-	write(serport->fd, "*e", 2);
-	write(serport->fd, array, 4);
-	write(serport->fd, "*t", 2);
+	fprintf(stdout, "internal_sendROMData ---> Erasing... %u\n", (rom->buffer_size / 0x10000));
+	if(write(serport->fd, "*e", 2) != 2) return -1;
+	if(write(serport->fd, array, 4) != 4) return -1;
+	if(write(serport->fd, "*t", 2) != 2) return -1;
 	if(read(serport->fd, &buf, 1) != 1) {
 		fprintf(stderr, "internal_sendROMData -> Unable to read!\n");
 		return -1;
@@ -55,16 +56,21 @@ int internal_sendROMData(rom_buffer_structure *rom, serport_ds *serport) {
 
 	uint32_t num = 32768;
 	uint32_t num2 = rom->buffer_size;
-	write(serport->fd, "*f", 2);
+	if(write(serport->fd, "*f", 2) != 2) return -1;
+
+	fprintf(stdout, "internal_sendROMData ---> Copying ROM...\n");
 
 	array[0] = (uint8_t)(num2/num);
-	write(serport->fd, array, 1);
+	if(write(serport->fd, array, 1) != 1) return -1;
 	for (uint32_t j = 0; j < num2; j+=num) {
+		fprintf(stdout, "\rcopied ... %u", j);
+		fflush(stdout);
+
 		array[0] = (uint8_t)(j/1048576);
 		array[1] = (uint8_t)(j/4096);
 		array[2] = (uint8_t)(num/4096);
-		write(serport->fd, array, 3);
-		write(serport->fd, &(rom->buffer[j]), num);
+		if(write(serport->fd, array, 3) != 3) return -1;
+		if(write(serport->fd, &(rom->buffer[j]), num) != num) return -1;
 	
 		if(read(serport->fd, &buf, 1) != 1) {
 			fprintf(stderr, "checkEverdrive -> Unable to read!\n");
@@ -72,17 +78,18 @@ int internal_sendROMData(rom_buffer_structure *rom, serport_ds *serport) {
 		}
 	}
 
+	fprintf(stdout, "\n");
+
 	return 1;
 }
 
 int internal_sendROMInfo(rom_buffer_structure *rom, serport_ds *serport) {
-	char buf = 0, retval;
+	char buf = 0;
 
-	retval = write(serport->fd, "*i", 2);
-	retval = write(serport->fd, rom->rom_name, ROM_NAME_SIZE);
-	retval = write(serport->fd, rom->rom_options, 5);
-	retval = write(serport->fd, "*t", 2);
-	retval = write(serport->fd, "*t", 2);
+	if(write(serport->fd, "*i", 2) != 2) return -1;
+	if(write(serport->fd, rom->rom_name, ROM_NAME_SIZE) != ROM_NAME_SIZE) return -1;
+	if(write(serport->fd, rom->rom_options, 5) != 5) return -1;
+	if(write(serport->fd, "*t", 2) != 2) return -1;
 
 	if(read(serport->fd, &buf, 1) != 1) {
 		fprintf(stderr, "sendROMInfo-> Unable to read!\n");
